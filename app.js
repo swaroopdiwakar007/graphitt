@@ -3,14 +3,39 @@
   'use strict';
 
   // ---------------------------------------------------------------- constants
-  const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-  // Categorical slots, assigned in fixed order (validated light palette).
-  const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
-  const EXTRA = '#898781'; // 9th+ series and "Other" slice
-  const INK = {
-    primary: '#0b0b0b', secondary: '#52514e', muted: '#898781',
-    grid: '#e1e0d9', axis: '#c3c2b7', surface: '#ffffff',
+  const FONT_BASE = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  let FONT = FONT_BASE;                 // gains the current language's font in front
+  const t = (k, v) => window.I18N.t(k, v);
+  const tx = t; // same translator, for code where `t` is a local (chart type, event target)
+
+  // Color schemes for graphs. "classic" is the validated default and has its own dark-mode steps.
+  const SCHEMES = {
+    classic: { key: 'schDefault', light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'],
+      dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'] },
+    ocean: { key: 'schOcean', light: ['#0353a4', '#00a6c4', '#2a9d8f', '#6c8ead', '#00b4d8', '#023e7d', '#48cae4', '#90a8c3'] },
+    sunset: { key: 'schSunset', light: ['#f94144', '#f3722c', '#f8961e', '#f9c74f', '#90be6d', '#43aa8b', '#4d908e', '#577590'] },
+    earth: { key: 'schEarth', light: ['#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51', '#8ab17d', '#6d597a', '#b56576'] },
+    berry: { key: 'schBerry', light: ['#7b2cbf', '#d81159', '#ff6f91', '#8f2d56', '#c77dff', '#ffbc42', '#218380', '#73d2de'] },
+    pastel: { key: 'schPastel', light: ['#8fb8ed', '#f4a6c6', '#9ad9b0', '#f7c59f', '#c3a6e8', '#f6e48f', '#8fd8d8', '#d9b8a3'] },
+    vivid: { key: 'schVivid', light: ['#e60049', '#0bb4ff', '#50e991', '#e6d800', '#9b19f5', '#ffa300', '#dc0ab4', '#00bfa0'] },
+    colorblind: { key: 'schColorblind', light: ['#0072b2', '#e69f00', '#009e73', '#cc79a7', '#56b4e9', '#d55e00', '#f0e442', '#000000'],
+      dark: ['#3a9ad9', '#e69f00', '#009e73', '#cc79a7', '#56b4e9', '#d55e00', '#f0e442', '#bbbbbb'] },
+    gray: { key: 'schGray', light: ['#1f1f1d', '#555451', '#81807b', '#a9a8a2', '#3a3a37', '#6b6a66', '#96958f', '#c3c2b7'],
+      dark: ['#f0efec', '#c3c2b7', '#9a9993', '#77766f', '#dddcd6', '#adaca5', '#8a8984', '#5f5e59'] },
   };
+  const INK_LIGHT = {
+    primary: '#0b0b0b', secondary: '#52514e', muted: '#898781',
+    grid: '#e1e0d9', axis: '#c3c2b7', surface: '#ffffff', mutedTone: '#cfcec7', extra: '#898781',
+  };
+  const INK_DARK = {
+    primary: '#f0efec', secondary: '#c3c2b7', muted: '#8f8e88',
+    grid: '#2e2e2b', axis: '#45453f', surface: '#1c1c1b', mutedTone: '#4b4b47', extra: '#77766f',
+  };
+  let INK = INK_LIGHT;
+  let isDark = false;
+  const paletteFor = c => { const sc = SCHEMES[c && c.scheme] || SCHEMES.classic; return (isDark && sc.dark) || sc.light; };
+  const AUTO_INK = '#1e1e1e';           // the default drawing ink flips to light ink on the dark board
+  const inkFor = c => (c === AUTO_INK && isDark ? '#ecebe6' : c);
   const ARC_TYPES = ['pie', 'doughnut', 'polar'];
   const STORE_KEY = 'graphitt:v2';
   const OLD_KEY = 'graph-board:v2'; // before the rename
@@ -50,6 +75,7 @@
     title: '', subtitle: '', xTitle: '', yTitle: '',
     legend: 'auto', showValues: false, smooth: false, beginZero: true, grid: true, bins: 10,
     width: 960, height: 540, scale: 2, bg: 'white',
+    scheme: 'classic', minimal: false, highlight: -1,
     x: 0, y: 0, z: 1, // position and stacking order on the board
   };
   const uid = () => 'c' + Math.random().toString(36).slice(2, 10);
@@ -244,7 +270,7 @@
     const seen = {};
     columns = [];
     for (let c = 0; c < width; c++) {
-      let name = (head && head[c]) || (c === 0 && head ? 'Label' : `Column ${colLetter(c)}`);
+      let name = (head && head[c]) || (c === 0 && head ? t('labelWord') : t('columnN', { x: colLetter(c) }));
       if (seen[name]) name = `${name} (${++seen[name]})`; else seen[name] = 1;
       const raw = body.map(r => r[c] ?? '');
       const values = raw.map(num);
@@ -286,10 +312,17 @@
   // ------------------------------------------------------------------- colors
   function colorFor(i) {
     const col = columns[i];
+    const pal = paletteFor(state);
+    if (state.minimal) return i === highlightIndex() ? pal[0] : INK.mutedTone;
     if (col && state.colors[i]) return state.colors[i];
     const order = columns.map((c, k) => k).filter(k => columns[k].numeric && k !== state.labelCol);
     const pos = order.indexOf(i);
-    return pos >= 0 && pos < PALETTE.length ? PALETTE[pos] : EXTRA;
+    return pos >= 0 && pos < pal.length ? pal[pos] : INK.extra;
+  }
+  // minimalist mode: the one series drawn in color
+  function highlightIndex() {
+    const plotted = state.series.filter(i => columns[i] && columns[i].numeric);
+    return plotted.includes(state.highlight) ? state.highlight : plotted[0];
   }
   function alpha(hex, a) {
     const n = parseInt(hex.slice(1), 16);
@@ -384,15 +417,13 @@
   }
 
   function seriesNote() {
-    const t = state.type;
-    if (ARC_TYPES.includes(t)) return 'Uses the first selected series. The labels column names each slice.';
-    if (t === 'scatter') return 'Each series is plotted against the X column, which should contain numbers.';
-    if (t === 'bubble') return columns[state.labelCol]?.numeric
-      ? 'X = X column, Y = first series, bubble size = second series.'
-      : 'X = first series, Y = second series, bubble size = third series. Labels name each bubble.';
-    if (t === 'histogram') return 'Counts how many values of each series fall into each bin.';
-    if (t === 'combo') return 'The first series is drawn as bars, the rest as lines.';
-    if (t === 'radar') return 'Labels become the spokes; each series is one shape.';
+    const ty = state.type;
+    if (ARC_TYPES.includes(ty)) return t('noteArc');
+    if (ty === 'scatter') return t('noteScatter');
+    if (ty === 'bubble') return columns[state.labelCol]?.numeric ? t('noteBubbleX') : t('noteBubble');
+    if (ty === 'histogram') return t('noteHist');
+    if (ty === 'combo') return t('noteCombo');
+    if (ty === 'radar') return t('noteRadar');
     return '';
   }
 
@@ -401,7 +432,7 @@
     const lab = columns[state.labelCol];
     const labels = lab ? lab.raw.map((v, i) => (v === '' ? String(i + 1) : v)) : [];
     const series = state.series.filter(i => columns[i]).map(i => ({ i, name: columns[i].name, values: columns[i].values, color: colorFor(i) }));
-    if (!series.length) return { error: 'Pick at least one series to plot.' };
+    if (!series.length) return { error: tx('errPickSeries') };
 
     const xT = state.xTitle, yT = state.yTitle;
     let type, datasets = [], dataLabels = labels, scales = {}, indexAxis = 'x', kind = 'bar', interactionMode = 'index';
@@ -411,7 +442,7 @@
     const barBase = c => ({ backgroundColor: c, hoverBackgroundColor: c, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 56, categoryPercentage: 0.72, barPercentage: 0.88 });
     const lineBase = (c, fill) => ({
       borderColor: c, backgroundColor: fill ? alpha(c, 0.16) : c, borderWidth: 2,
-      pointRadius: many ? 0 : 3, pointHoverRadius: 5, pointBackgroundColor: c, pointBorderColor: '#ffffff', pointBorderWidth: 1.5,
+      pointRadius: many ? 0 : 3, pointHoverRadius: 5, pointBackgroundColor: c, pointBorderColor: INK.surface, pointBorderWidth: 1.5,
       tension: state.smooth ? 0.35 : 0, spanGaps: true,
     });
 
@@ -423,7 +454,7 @@
         indexAxis = horiz ? 'y' : 'x';
         kind = stacked ? 'stacked' : horiz ? 'hbar' : 'bar';
         datasets = series.map(s => Object.assign(barBase(s.color), { label: s.name, data: s.values },
-          stacked ? { borderRadius: 0, borderSkipped: false, borderColor: '#ffffff', borderWidth: { top: 1, bottom: 1 } } : {}));
+          stacked ? { borderRadius: 0, borderSkipped: false, borderColor: INK.surface, borderWidth: { top: 1, bottom: 1 } } : {}));
         const cat = axis(horiz ? yT : xT, { grid: false, stacked });
         const val = axis(horiz ? xT : yT, { stacked, beginZero: state.beginZero || stacked });
         scales = horiz ? { y: cat, x: val } : { x: cat, y: val };
@@ -456,10 +487,10 @@
         type = 'scatter'; kind = 'line'; interactionMode = 'nearest';
         const xs = lab && lab.numeric ? lab.values : labels.map((_, k) => k + 1);
         datasets = series.filter(s => s.i !== state.labelCol).map(s => ({
-          label: s.name, backgroundColor: s.color, borderColor: '#ffffff', borderWidth: 1, pointRadius: 5, pointHoverRadius: 7,
+          label: s.name, backgroundColor: s.color, borderColor: INK.surface, borderWidth: 1, pointRadius: 5, pointHoverRadius: 7,
           data: s.values.map((y, k) => (y != null && xs[k] != null ? { x: xs[k], y, label: labels[k] } : null)).filter(Boolean),
         }));
-        if (!datasets.length) return { error: 'Pick a series other than the X column.' };
+        if (!datasets.length) return { error: tx('errOtherThanX') };
         legendCount = datasets.length;
         scales = { x: axis(xT || (lab ? lab.name : ''), { type: 'linear', beginZero: false }), y: axis(yT, { beginZero: state.beginZero }) };
         if (state.smooth) datasets.forEach(d => { d.showLine = true; d.borderColor = d.backgroundColor; d.borderWidth = 2; d.tension = 0.35; });
@@ -469,7 +500,7 @@
         type = 'bubble'; kind = 'none'; interactionMode = 'nearest';
         const useLabelX = lab && lab.numeric && !state.series.includes(state.labelCol);
         const need = useLabelX ? 1 : 2;
-        if (series.length < need) return { error: useLabelX ? 'Pick a series for Y.' : 'A bubble chart needs at least two numeric series (X and Y). A third sets bubble size.' };
+        if (series.length < need) return { error: useLabelX ? tx('errNeedY') : tx('errBubble') };
         const xs = useLabelX ? lab.values : series[0].values;
         const ys = useLabelX ? series[0].values : series[1].values;
         const rs = useLabelX ? series[1]?.values : series[2]?.values;
@@ -477,7 +508,7 @@
         const ySeries = useLabelX ? series[0] : series[1];
         datasets = [{
           label: ySeries.name,
-          backgroundColor: alpha(ySeries.color, 0.72), borderColor: '#ffffff', borderWidth: 1.5, hoverBackgroundColor: ySeries.color,
+          backgroundColor: alpha(ySeries.color, 0.72), borderColor: INK.surface, borderWidth: 1.5, hoverBackgroundColor: ySeries.color,
           data: xs.map((x, k) => (x != null && ys[k] != null ? { x, y: ys[k], r: rs ? 4 + 26 * Math.sqrt(Math.abs(rs[k] || 0) / rMax) : 8, size: rs ? rs[k] : null, label: labels[k] } : null)).filter(Boolean),
         }];
         legendCount = 1;
@@ -489,21 +520,23 @@
         type = t === 'polar' ? 'polarArea' : t; kind = 'arc'; interactionMode = 'nearest';
         const s = series[0];
         let items = labels.map((l, k) => ({ l, v: s.values[k], k })).filter(d => d.v != null && (t === 'polar' ? true : d.v > 0));
-        if (!items.length) return { error: 'This series has no positive values to show as slices.' };
+        if (!items.length) return { error: tx('errNoPositive') };
         if (items.length > 8) {
           const top = [...items].sort((a, b) => b.v - a.v).slice(0, 7);
           const keep = new Set(top.map(d => d.k));
           const other = items.filter(d => !keep.has(d.k)).reduce((sum, d) => sum + d.v, 0);
           items = items.filter(d => keep.has(d.k));
-          items.push({ l: 'Other', v: other, k: -1 });
+          items.push({ l: tx('other'), v: other, k: -1 });
         }
         dataLabels = items.map(d => d.l);
-        const colors = items.map((d, k) => (d.k === -1 ? EXTRA : PALETTE[k]));
+        const pal = paletteFor(state);
+        const biggest = items.reduce((m, d) => (d.v > m.v ? d : m), items[0]);
+        const colors = items.map((d, k) => (state.minimal ? (d === biggest ? pal[0] : INK.mutedTone) : d.k === -1 ? INK.extra : pal[k]));
         datasets = [{
           label: s.name, data: items.map(d => d.v),
           backgroundColor: t === 'polar' ? colors.map(c => alpha(c, 0.85)) : colors,
           hoverBackgroundColor: colors,
-          borderColor: '#ffffff', borderWidth: 2, hoverOffset: t === 'polar' ? 0 : 6,
+          borderColor: INK.surface, borderWidth: 2, hoverOffset: t === 'polar' ? 0 : 6,
         }];
         legendCount = items.length;
         if (t === 'polar') {
@@ -515,7 +548,7 @@
         type = 'radar'; kind = 'none';
         datasets = series.map(s => ({
           label: s.name, data: s.values, borderColor: s.color, backgroundColor: alpha(s.color, 0.14), borderWidth: 2,
-          pointRadius: 3, pointBackgroundColor: s.color, pointBorderColor: '#ffffff', pointHoverRadius: 5,
+          pointRadius: 3, pointBackgroundColor: s.color, pointBorderColor: INK.surface, pointHoverRadius: 5,
         }));
         scales = {
           r: {
@@ -530,7 +563,7 @@
       case 'histogram': {
         type = 'bar'; kind = 'bar';
         const all = series.flatMap(s => s.values.filter(v => v != null));
-        if (!all.length) return { error: 'No numbers to count.' };
+        if (!all.length) return { error: tx('errNoNumbers') };
         const n = Math.max(2, Math.min(100, Math.round(state.bins) || 10));
         let min = Math.min(...all), max = Math.max(...all);
         if (min === max) { min -= 0.5; max += 0.5; }
@@ -541,10 +574,10 @@
           s.values.forEach(v => { if (v == null) return; counts[Math.min(n - 1, Math.floor((v - min) / w))]++; });
           return Object.assign(barBase(s.color), {
             label: s.name, data: counts, categoryPercentage: 1, barPercentage: 1, maxBarThickness: undefined,
-            borderColor: '#ffffff', borderWidth: { left: 1, right: 1 }, borderSkipped: 'start',
+            borderColor: INK.surface, borderWidth: { left: 1, right: 1 }, borderSkipped: 'start',
           });
         });
-        scales = { x: axis(xT || (series.length === 1 ? series[0].name : ''), { grid: false }), y: axis(yT || 'Count', { beginZero: true }) };
+        scales = { x: axis(xT || (series.length === 1 ? series[0].name : ''), { grid: false }), y: axis(yT || tx('count'), { beginZero: true }) };
         break;
       }
     }
@@ -586,7 +619,7 @@
             label(ctx) {
               const raw = ctx.raw;
               const name = ctx.dataset.label || '';
-              if (t === 'bubble') return `${raw.label ? raw.label + ': ' : ''}(${fmt(raw.x)}, ${fmt(raw.y)})${raw.size != null ? ` · size ${fmt(raw.size)}` : ''}`;
+              if (t === 'bubble') return `${raw.label ? raw.label + ': ' : ''}(${fmt(raw.x)}, ${fmt(raw.y)})${raw.size != null ? ` · ${tx('size')} ${fmt(raw.size)}` : ''}`;
               if (t === 'scatter') return `${name}: (${fmt(raw.x)}, ${fmt(raw.y)})${raw.label && !columns[state.labelCol]?.numeric ? ' · ' + raw.label : ''}`;
               if (isArc) {
                 const total = ctx.dataset.data.reduce((s, v) => s + Math.abs(v || 0), 0);
@@ -650,7 +683,7 @@
   const DRAW_TOOLS = ['pen', 'rect', 'ellipse', 'arrow', 'line'];
   const INK_COLORS = ['#1e1e1e', '#e34948', '#2a78d6', '#1baf7a', '#eda100', '#6250d6', '#e87ba4', '#898781'];
   const ICON_MORE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="18.5" cy="12" r="1.9"/></svg>';
-  const chartName = c => (c.title || '').trim() || `Graph ${doc.charts.indexOf(c) + 1}`;
+  const chartName = c => (c.title || '').trim() || t('graphN', { n: doc.charts.indexOf(c) + 1 });
   const byId = id => doc.charts.find(c => c.id === id);
   const itemById = id => doc.items.find(it => it.id === id);
   const topZ = () => Math.max(0, ...doc.charts.map(c => c.z || 0), ...doc.items.map(it => it.z || 0));
@@ -674,12 +707,12 @@
           <strong class="e-title"></strong>
           <span class="e-text"></span>
           <div class="row e-actions">
-            <button class="btn primary" type="button" data-act="table">Open table</button>
-            <button class="btn" type="button" data-act="sample">Try sample data</button>
+            <button class="btn primary" type="button" data-act="table">${t('openTable')}</button>
+            <button class="btn" type="button" data-act="sample">${t('trySample')}</button>
           </div>
         </div>
       </div>
-      <button type="button" class="card-more" data-act="more" title="Graph options" aria-label="Graph options" aria-haspopup="menu">${ICON_MORE}</button>
+      <button type="button" class="card-more" data-act="more" title="${t('graphOptions')}" aria-label="${t('graphOptions')}" aria-haspopup="menu">${ICON_MORE}</button>
       ${['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(d => `<div class="h h-${d}" data-dir="${d}"></div>`).join('')}`;
     el.world.appendChild(node);
     k = { el: node, canvas: node.querySelector('canvas'), empty: node.querySelector('.empty'), chart: null, sig: null };
@@ -713,18 +746,18 @@
   function drawCard(c, force = false) {
     const k = cardFor(c);
     const { x, y, z, ...rest } = c;
-    const sig = JSON.stringify(rest);
+    const sig = JSON.stringify(rest) + '|' + (isDark ? 'd' : 'l') + '|' + window.I18N.getLang();
     if (!force && sig === k.sig && (k.chart || !k.empty.hidden)) return;
     k.sig = sig;
     const saved = [state, columns, matrix];
     let message = null, built = null;
     try {
       if (c !== state) { state = c; buildColumns(); }
-      if (!columns.length) message = ['This graph has no data yet', 'Open the table and paste cells from Excel, Google Sheets or Numbers.', true];
-      else if (!columns.some(col => col.numeric)) message = ['No numbers found', 'At least one column needs numeric values. Open the table and check “First row is headers” / “Series in rows”.', false];
+      if (!columns.length) message = [t('noData'), esc(t('noDataText')), true];
+      else if (!columns.some(col => col.numeric)) message = [t('noNumbers'), esc(t('noNumbersText')), false];
       if (!message) {
         built = buildConfig();
-        if (built.error) message = ['Nothing to plot yet', built.error, false];
+        if (built.error) message = [t('nothingToPlot'), esc(built.error), false];
       }
     } finally {
       [state, columns, matrix] = saved;
@@ -736,6 +769,8 @@
       k.empty.querySelector('.e-title').textContent = message[0];
       k.empty.querySelector('.e-text').innerHTML = message[1];
       k.empty.querySelector('[data-act="sample"]').hidden = !message[2];
+      k.empty.querySelector('[data-act="table"]').textContent = t('openTable');
+      k.empty.querySelector('[data-act="sample"]').textContent = t('trySample');
       return;
     }
     built.config.options.devicePixelRatio = pixelRatio();
@@ -792,7 +827,7 @@
     $('#paste-zone').hidden = has && !rawMode;
     $('#grid-zone').hidden = !has;
     $('#raw-toggle').hidden = !has;
-    $('#raw-toggle').textContent = rawMode ? 'Hide text' : 'Edit as text';
+    $('#raw-toggle').textContent = rawMode ? t('hideText') : t('editAsText');
   }
 
   function openStyle(c) {
@@ -860,7 +895,7 @@
 
   function duplicateChart(c) {
     const copy = JSON.parse(JSON.stringify(c));
-    copy.title = copy.title ? `${copy.title} (copy)` : '';
+    copy.title = copy.title ? `${copy.title} (${t('copySuffix')})` : '';
     copy.x += 40; copy.y += 40;
     const spotOk = !doc.charts.some(o => o.x === copy.x && o.y === copy.y);
     if (!spotOk) { copy.x += 40; copy.y += 40; }
@@ -870,16 +905,16 @@
     selectChart(n);
     renderNow();
     bringIntoView(n);
-    toast('Graph duplicated — try another chart type');
+    toast(t('tDuplicated'));
   }
 
   function deleteChart(c) {
-    if (c.raw.trim() && !confirm(`Delete “${chartName(c)}”? Its table will be removed too.`)) return;
+    if (c.raw.trim() && !confirm(t('confirmDelete', { name: chartName(c) }))) return;
     doc.charts.splice(doc.charts.indexOf(c), 1);
     if (state === c) state = null;
     sel = null; tableFor = null; styleOpen = false;
     renderNow();
-    toast('Graph deleted — Ctrl+Z to undo');
+    toast(t('tDeleted'));
   }
 
   // ---------------------------------------------------------------- drawings
@@ -904,8 +939,9 @@
   }
 
   function fillFor(it) {
-    if (it.fill === 'soft') return alpha(it.stroke.length === 7 ? it.stroke : '#1e1e1e', 0.18);
-    if (it.fill === 'solid') return it.stroke;
+    const ink = inkFor(it.stroke);
+    if (it.fill === 'soft') return alpha(ink.length === 7 ? ink : AUTO_INK, 0.18);
+    if (it.fill === 'solid') return ink;
     return 'none';
   }
 
@@ -925,7 +961,7 @@
 
   function shapeMarkup(it) {
     const w = Math.max(0, it.w), h = Math.max(0, it.h);
-    const stroke = `stroke="${it.stroke}" stroke-width="${it.sw}" stroke-linecap="round" stroke-linejoin="round"`;
+    const stroke = `stroke="${inkFor(it.stroke)}" stroke-width="${it.sw}" stroke-linecap="round" stroke-linejoin="round"`;
     const hitW = it.sw + 14;
     let shape = '', hit = '';
     if (it.kind === 'rect') {
@@ -960,7 +996,9 @@
     n.style.zIndex = it.z;
     if (it.kind === 'text') {
       n.style.fontSize = it.fs + 'px';
-      n.style.color = it.stroke;
+      n.style.color = inkFor(it.stroke);
+      n.dataset.ph = t('typeSomething');
+      n.dir = 'auto';
       if (editingText !== it.id) n.textContent = it.text;
       return;
     }
@@ -1060,7 +1098,7 @@
   }
 
   // ---- drawing properties panel
-  el.props.querySelector('#prop-stroke').innerHTML = INK_COLORS.map(c => `<button type="button" class="swatch" data-v="${c}" style="background:${c}" aria-label="Color ${c}" aria-pressed="false"></button>`).join('');
+  el.props.querySelector('#prop-stroke').innerHTML = INK_COLORS.map(c => `<button type="button" class="swatch${c === AUTO_INK ? ' swatch-ink' : ''}" data-v="${c}" style="background:${c === AUTO_INK ? 'var(--ink)' : c}" aria-label="${c}" aria-pressed="false"></button>`).join('');
   function propContext() {
     const it = selItem();
     if (it) return it.kind;
@@ -1549,8 +1587,7 @@
     const body = head ? rows.length - 1 : rows.length;
     const nums = ok ? rows[0].filter((_, c) => rows.slice(head ? 1 : 0).some(r => num(r[c]) != null)).length : 0;
     el.addStatus.classList.toggle('error', !ok || !nums);
-    el.addStatus.textContent = !ok ? 'Could not read a table from this text.'
-      : `${body} row${body === 1 ? '' : 's'} · ${rows[0].length} column${rows[0].length === 1 ? '' : 's'}${nums ? '' : ' · no numbers found yet'}`;
+    el.addStatus.textContent = !ok ? t('cantRead') : rowsColsText(body, rows[0].length) + (nums ? '' : ' · ' + t('noNumbersYet'));
   }
   el.addText.addEventListener('input', updateAddStatus);
   el.addText.addEventListener('paste', e => {
@@ -1571,13 +1608,13 @@
     const text = el.addText.value.replace(/\r\n?/g, '\n');
     closeAddDialog();
     setTool('select');
-    addTable(text, 'Graph added');
+    addTable(text, t('tGraphAdded'));
   });
   $('#add-cancel').addEventListener('click', closeAddDialog);
   $('#add-cancel-x').addEventListener('click', closeAddDialog);
   el.modal.addEventListener('pointerdown', e => { if (e.target === el.modal) closeAddDialog(); });
   $('#add-sample').addEventListener('click', () => { el.addText.value = SAMPLE; updateAddStatus(); el.addCreate.focus(); });
-  $('#add-empty').addEventListener('click', () => { closeAddDialog(); setTool('select'); const c = addChart(); openTable(c); toast('Type or paste your data into the table'); });
+  $('#add-empty').addEventListener('click', () => { closeAddDialog(); setTool('select'); const c = addChart(); openTable(c); toast(t('tTypeData')); });
   $('#add-upload').addEventListener('click', () => $('#file').click());
   $('#add-graph').addEventListener('click', openAddDialog);
   $('#welcome-add').addEventListener('click', openAddDialog);
@@ -1669,7 +1706,38 @@
   $('#zoom-pct').addEventListener('click', () => zoomAt(1 / view.z, ...areaCenter()));
   $('#zoom-fit').addEventListener('click', fitAll);
 
+  function renderSchemes() {
+    $('#schemes').innerHTML = Object.entries(SCHEMES).map(([id, sc]) => {
+      const pal = (isDark && sc.dark) || sc.light;
+      const dots = pal.slice(0, 5).map(c => `<i style="background:${c}"></i>`).join('');
+      const on = state && (state.scheme || 'classic') === id;
+      return `<button type="button" class="scheme" role="radio" data-scheme="${id}" aria-checked="${!!on}" title="${esc(t(sc.key))}"><span class="dots">${dots}</span><span class="nm">${esc(t(sc.key))}</span></button>`;
+    }).join('');
+  }
+  $('#schemes').addEventListener('click', e => {
+    const b = e.target.closest('[data-scheme]');
+    if (!b || !state) return;
+    state.scheme = b.dataset.scheme;
+    state.colors = {};               // a scheme replaces one-off series colors
+    render();
+  });
+  $('#highlight').addEventListener('change', e => { state.highlight = Number(e.target.value); render(); });
+
+  function syncColors() {
+    $('#schemes').querySelectorAll('[data-scheme]').forEach(b => b.setAttribute('aria-checked', String((state.scheme || 'classic') === b.dataset.scheme)));
+    const isArc = ARC_TYPES.includes(state.type);
+    const plotted = state.series.filter(i => columns[i] && columns[i].numeric);
+    const hf = $('#highlight-field');
+    hf.hidden = !state.minimal || isArc || plotted.length < 2;
+    if (!hf.hidden) {
+      const hl = highlightIndex();
+      $('#highlight').innerHTML = plotted.map(i => `<option value="${i}"${i === hl ? ' selected' : ''}>${esc(columns[i].name)}</option>`).join('');
+    }
+    $('.minimal-hint').textContent = state.minimal && isArc ? `${t('minimalistHint')} (${t('highlight')}: ${t('largestSlice')})` : t('minimalistHint');
+  }
+
   function syncControls() {
+    syncColors();
     el.header.checked = state.header;
     el.transpose.checked = state.transpose;
     document.querySelectorAll('[data-key]').forEach(inp => {
@@ -1682,7 +1750,7 @@
     // x column
     const t = state.type;
     el.xField.hidden = t === 'histogram' || !columns.length;
-    el.xLabelText.textContent = t === 'scatter' || t === 'bubble' ? 'X values' : ARC_TYPES.includes(t) ? 'Slice labels' : t === 'radar' ? 'Spoke labels' : t === 'hbar' ? 'Labels (Y axis)' : 'Labels (X axis)';
+    el.xLabelText.textContent = tx(t === 'scatter' || t === 'bubble' ? 'xValues' : ARC_TYPES.includes(t) ? 'sliceLabels' : t === 'radar' ? 'spokeLabels' : t === 'hbar' ? 'labelsY' : 'labelsX');
     el.xCol.innerHTML = columns.map((c, i) => `<option value="${i}">${esc(c.name)}</option>`).join('');
     el.xCol.value = String(state.labelCol);
     el.binsField.hidden = t !== 'histogram';
@@ -1699,15 +1767,131 @@
     const rows = columns[0]?.raw.length || 0;
     const numCols = columns.filter(c => c.numeric).length;
     if (!state.raw.trim()) { el.status.textContent = ''; el.status.classList.remove('error'); }
-    else if (!columns.length) { el.status.textContent = 'Could not read a table from this text.'; el.status.classList.add('error'); }
+    else if (!columns.length) { el.status.textContent = tx('cantRead'); el.status.classList.add('error'); }
     else {
       el.status.classList.toggle('error', numCols === 0);
-      el.status.textContent = `${rows} row${rows === 1 ? '' : 's'} · ${columns.length} column${columns.length === 1 ? '' : 's'} · ${numCols} numeric`;
+      el.status.textContent = rowsColsText(rows, columns.length) + ' · ' + tx('numericCount', { n: numCols });
     }
     syncTableZones();
   }
 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // English gets singular/plural; the other languages use one form.
+  function rowsColsText(r, c) {
+    if (window.I18N.getLang() === 'en') return `${r} row${r === 1 ? '' : 's'} · ${c} column${c === 1 ? '' : 's'}`;
+    return t('rowsCols', { r, c });
+  }
+
+  // ------------------------------------------------------- language & theme
+  const PREFS_KEY = 'graphitt:prefs';
+  const prefs = (() => {
+    try { return Object.assign({ lang: 'en', theme: 'system' }, JSON.parse(localStorage.getItem(PREFS_KEY)) || {}); }
+    catch { return { lang: 'en', theme: 'system' }; }
+  })();
+  const savePrefs = () => { try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* storage unavailable */ } };
+  const darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+  function redrawAll() {
+    if (!window.Chart) return;
+    doc.charts.forEach(c => drawCard(c, true));
+    renderItems();
+  }
+
+  function applyTheme() {
+    isDark = prefs.theme === 'dark' || (prefs.theme === 'system' && !!darkQuery && darkQuery.matches);
+    document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+    INK = isDark ? INK_DARK : INK_LIGHT;
+    if (window.Chart) Chart.defaults.color = INK.secondary;
+    document.querySelectorAll('#theme-seg [data-v]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === prefs.theme)));
+    renderSchemes();
+  }
+  if (darkQuery) darkQuery.addEventListener('change', () => { if (prefs.theme === 'system') { applyTheme(); renderNow(); redrawAll(); } });
+
+  const loadedFonts = new Set();
+  function loadFont(name) {
+    if (!name || loadedFonts.has(name)) return;
+    loadedFonts.add(name);
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${name.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`;
+    // once the script's font is ready, redraw the graphs so canvas text uses it too
+    link.onload = () => document.fonts && document.fonts.load(`500 14px "${name}"`).then(redrawAll, redrawAll);
+    document.head.appendChild(link);
+  }
+
+  function translatePage() {
+    document.querySelectorAll('[data-i18n]').forEach(n => { n.textContent = t(n.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-ph]').forEach(n => { n.placeholder = t(n.dataset.i18nPh); });
+    document.querySelectorAll('[data-i18n-aria]').forEach(n => n.setAttribute('aria-label', t(n.dataset.i18nAria)));
+    document.querySelectorAll('[data-i18n-title]').forEach(n => { n.title = t(n.dataset.i18nTitle) + (n.dataset.kbd ? ` (${n.dataset.kbd})` : ''); });
+    document.querySelectorAll('.rail [data-tool]').forEach(b => {
+      const name = t(b.dataset.tool === 'pen' ? 'pen' : b.dataset.tool);
+      b.title = `${name} (${b.querySelector('.rail-key').textContent})`;
+      b.setAttribute('aria-label', name);
+    });
+    const keys = '<kbd>Ctrl</kbd>+<kbd>V</kbd>';
+    $('#welcome-text').innerHTML = esc(t('welcomeText')).replace('{keys}', keys).replace('{plus}', '<strong>+</strong>');
+    const presets = {
+      '': t('custom'), '960x540': `${t('pSlide')} 16:9 — 960 × 540`, '1280x720': 'HD 16:9 — 1280 × 720',
+      '1024x768': `${t('pStandard')} 4:3 — 1024 × 768`, '800x800': `${t('pSquare')} — 800 × 800`, '720x960': `${t('pPortrait')} 3:4 — 720 × 960`,
+      '1123x794': `A4 ${t('pLandscape')} — 1123 × 794`, '794x1123': `A4 ${t('pPortraitLower')} — 794 × 1123`, '1200x675': `${t('pSocial')} — 1200 × 675`,
+    };
+    [...el.preset.options].forEach(o => { if (o.value in presets) o.textContent = presets[o.value]; });
+    const q = { 1: 'qScreen', 2: 'qSharp', 3: 'qPrint', 4: 'qPoster' };
+    document.querySelectorAll('[data-key="scale"] option').forEach(o => { o.textContent = `${o.value}× (${t(q[o.value])})`; });
+  }
+
+  function applyLang() {
+    const code = window.I18N.LANGS[prefs.lang] ? prefs.lang : 'en';
+    window.I18N.setLang(code);
+    const L = window.I18N.LANGS[code];
+    document.documentElement.lang = code;
+    loadFont(L.font);
+    FONT = (L.font ? `"${L.font}", ` : '') + FONT_BASE;
+    document.documentElement.style.setProperty('--font', FONT);
+    if (window.Chart) Chart.defaults.font.family = FONT;
+    // Urdu reads right-to-left: flip the panels' text direction (tables of numbers stay left-to-right)
+    document.querySelectorAll('.drawer, .menu, .dialog, .props, .welcome, .popover, .tp-head, .tp-foot, .table-tools').forEach(n => { n.dir = L.rtl ? 'rtl' : 'ltr'; });
+    $('#lang-select').value = code;
+    translatePage();
+    renderTypes();
+    renderSchemes();
+  }
+
+  // the language & theme popover
+  $('#lang-select').innerHTML = window.I18N.ORDER.map(c => `<option value="${c}">${window.I18N.LANGS[c].native}</option>`).join('');
+  const settingsBtn = $('#settings-btn'), settingsPop = $('#settings');
+  function toggleSettings(open = settingsPop.hidden) {
+    settingsPop.hidden = !open;
+    settingsBtn.setAttribute('aria-expanded', String(open));
+    settingsBtn.setAttribute('aria-pressed', String(open));
+    if (open) {
+      const r = settingsBtn.getBoundingClientRect();
+      settingsPop.style.top = Math.max(12, Math.min(r.top - 8, window.innerHeight - settingsPop.offsetHeight - 12)) + 'px';
+      $('#lang-select').focus({ preventScroll: true });
+    }
+  }
+  settingsBtn.addEventListener('click', () => toggleSettings());
+  document.addEventListener('pointerdown', e => {
+    if (!settingsPop.hidden && !e.target.closest('#settings, #settings-btn')) toggleSettings(false);
+  }, true);
+  settingsPop.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); toggleSettings(false); settingsBtn.focus(); } });
+  $('#lang-select').addEventListener('change', e => {
+    prefs.lang = e.target.value; savePrefs();
+    applyLang();
+    if (state) renderNow(); else syncChrome();
+    redrawAll();
+    doc.charts.forEach(positionCard);
+  });
+  $('#theme-seg').addEventListener('click', e => {
+    const b = e.target.closest('[data-v]');
+    if (!b) return;
+    prefs.theme = b.dataset.v; savePrefs();
+    applyTheme();
+    renderNow();
+    redrawAll();
+  });
 
   // The editable table. data-r / data-c are coordinates in `matrix`.
   function renderPreview() {
@@ -1716,7 +1900,7 @@
     const off = state.header ? 1 : 0;
     const head = columns.map((c, i) => {
       const sw = sel.has(i) ? `<span class="sw" style="background:${colorFor(i)}"></span>` : '';
-      const tag = i === state.labelCol && state.type !== 'histogram' ? '<span class="tag">labels</span>' : '';
+      const tag = i === state.labelCol && state.type !== 'histogram' ? `<span class="tag">${esc(t('labelsTag'))}</span>` : '';
       const name = state.header
         ? `<span class="cell" contenteditable="true" spellcheck="false" data-r="0" data-c="${i}">${esc(matrix[0][i])}</span>`
         : esc(c.name);
@@ -1728,7 +1912,7 @@
     for (let r = 0; r < limit; r++) {
       body += '<tr>' + columns.map((c, i) => `<td class="${c.numeric ? 'num' : ''}" contenteditable="true" spellcheck="false" data-r="${r + off}" data-c="${i}">${esc(c.raw[r])}</td>`).join('') + '</tr>';
     }
-    if (n > limit) body += `<tr><td class="more" colspan="${columns.length}">… ${n - limit} more rows (edit them in the text box above)</td></tr>`;
+    if (n > limit) body += `<tr><td class="more" colspan="${columns.length}">${esc(t('moreRows', { n: n - limit }))}</td></tr>`;
     el.preview.innerHTML = `<thead><tr>${head}</tr></thead><tbody>${body}</tbody>`;
   }
 
@@ -1794,7 +1978,7 @@
     const width = matrix[0].length;
     const row = new Array(width).fill('');
     const lab = columns[state.labelCol];
-    if (lab && !lab.numeric) row[state.labelCol] = `Row ${matrix.length - (state.header ? 1 : 0) + 1}`;
+    if (lab && !lab.numeric) row[state.labelCol] = t('rowN', { n: matrix.length - (state.header ? 1 : 0) + 1 });
     else row.fill('0');
     matrix.push(row);
     state.raw = serialize();
@@ -1808,7 +1992,7 @@
   $('#add-col').addEventListener('click', () => {
     if (!matrix.length) return;
     const n = matrix[0].length;
-    matrix.forEach((r, k) => r.push(k === 0 && state.header ? `Series ${n}` : '0'));
+    matrix.forEach((r, k) => r.push(k === 0 && state.header ? t('seriesN', { n }) : '0'));
     state.raw = serialize();
     el.data.value = state.raw;
     state.headerAuto = false;
@@ -1819,7 +2003,7 @@
 
   function renderSeries() {
     const numeric = columns.map((c, i) => i).filter(i => columns[i].numeric && (i !== state.labelCol || state.type === 'histogram' || !columns.some((c, k) => k !== i && c.numeric)));
-    if (!numeric.length) { el.series.innerHTML = '<span class="none">No numeric columns</span>'; return; }
+    if (!numeric.length) { el.series.innerHTML = `<span class="none">${esc(t('noNumericCols'))}</span>`; return; }
     const sel = new Set(state.series);
     el.series.innerHTML = numeric.map(i => `
       <div class="chip${sel.has(i) ? '' : ' off'}">
@@ -1881,29 +2065,32 @@
   function exportPng() {
     if (!state) return;
     const scale = Number(state.scale) || 2;
-    const url = exportImage(scale, state.bg === 'transparent' ? null : '#ffffff');
+    const url = exportImage(scale, state.bg === 'transparent' ? null : INK.surface);
     if (!url) return;
     download(url, fileName() + '.png');
-    toast(`Saved ${fileName()}.png · ${state.width * scale} × ${state.height * scale} px`);
+    toast(t('tSaved', { f: fileName() + '.png' }) + ` · ${state.width * scale} × ${state.height * scale} px`);
   }
 
   function exportPdf() {
     if (!state) return;
-    if (!window.jspdf) { toast('PDF library failed to load — check your connection.'); return; }
-    const url = exportImage(Math.max(2, Number(state.scale) || 2), '#ffffff');
+    if (!window.jspdf) { toast(t('tPdfFail')); return; }
+    const url = exportImage(Math.max(2, Number(state.scale) || 2), INK.surface);
     if (!url) return;
     const { width: w, height: h } = state;
     const pdf = new window.jspdf.jsPDF({ orientation: w >= h ? 'landscape' : 'portrait', unit: 'px', format: [w, h], hotfixes: ['px_scaling'], compress: true });
     pdf.addImage(url, 'PNG', 0, 0, w, h, undefined, 'FAST');
     pdf.setProperties({ title: state.title || 'Chart' });
     pdf.save(fileName() + '.pdf');
-    toast(`Saved ${fileName()}.pdf`);
+    toast(t('tSaved', { f: fileName() + '.pdf' }));
   }
   el.png.addEventListener('click', exportPng);
   el.pdf.addEventListener('click', exportPdf);
 
   // ------------------------------------------------------------------ events
-  el.types.innerHTML = TYPES.map(tp => `<button type="button" role="radio" data-type="${tp.id}" aria-checked="false" title="${tp.name}">${svg(tp.icon)}<span>${tp.name}</span></button>`).join('');
+  function renderTypes() {
+    el.types.innerHTML = TYPES.map(tp => `<button type="button" role="radio" data-type="${tp.id}" aria-checked="${!!state && state.type === tp.id}" title="${esc(t('ct_' + tp.id))}">${svg(tp.icon)}<span>${esc(t('ct_' + tp.id))}</span></button>`).join('');
+  }
+  renderTypes();
   el.types.addEventListener('click', e => {
     const b = e.target.closest('button[data-type]');
     if (!b) return;
@@ -1967,22 +2154,22 @@
       if (!all && el.data.value.trim()) return;
       e.preventDefault();
       setData(text);
-      toast('Table pasted');
+      toast(tx('tTablePasted'));
       return;
     }
     e.preventDefault();
     setTool('select');
-    addTable(text, 'Graph created from the pasted table');
+    addTable(text, tx('tPasted'));
   });
 
   // Upload or drop CSV / TSV files — each file becomes its own chart
   function loadFiles(files) {
     const ok = [...files].filter(f => /\.(csv|tsv|txt)$/i.test(f.name) || /^text\//.test(f.type));
-    if (!ok.length) { toast('Use .csv, .tsv or .txt files (in Excel: File → Save As → CSV)'); return; }
+    if (!ok.length) { toast(t('tUseCsv')); return; }
     closeAddDialog();
     setTool('select');
     ok.reduce((p, f) => p.then(() => f.text().then(t => {
-      addTable(t, `Loaded ${f.name}`);
+      addTable(t, tx('tLoaded', { f: f.name }));
       if (!state.title) { state.title = f.name.replace(/\.[^.]+$/, ''); renderNow(); }
     })), Promise.resolve());
   }
@@ -1997,7 +2184,7 @@
   $('#sample').addEventListener('click', loadSample);
   function loadSample() {
     setTool('select');
-    addTable(SAMPLE, 'Sample graph added');
+    addTable(SAMPLE, t('tSample'));
     if (!state.title) { state.title = 'Sales by channel'; state.subtitle = '2026, in USD'; }
     renderNow();
   }
@@ -2060,12 +2247,15 @@
 
   // ------------------------------------------------------------------- start
   if (!window.Chart) {
+    applyLang();
     el.welcome.hidden = false;
-    el.welcome.querySelector('h1').textContent = 'Could not load the chart library';
-    el.welcome.querySelector('p').textContent = 'Check your internet connection and reload the page.';
+    el.welcome.querySelector('h1').textContent = t('tLibFail');
+    el.welcome.querySelector('p').textContent = t('tLibFailText');
     el.welcome.querySelector('.welcome-actions').hidden = true;
     return;
   }
+  applyTheme();
+  applyLang();
   Chart.defaults.font.family = FONT;
   Chart.defaults.color = INK.secondary;
   setTool('select');

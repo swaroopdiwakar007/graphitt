@@ -6,7 +6,7 @@
   <title>Graphitt</title>
   <meta name="description" content="Paste a table from Excel, Google Sheets or Numbers and turn it into a chart. Download as PNG or PDF.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a78d6'/%3E%3Cpath d='M9 23v-6M16 23V9M23 23v-9' stroke='white' stroke-width='3.5' stroke-linecap='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
   <main class="app">
@@ -19,7 +19,7 @@
       <div class="rail-logo" title="Graphitt">
         <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#2a78d6"/><path d="M9 23v-6M16 23V9M23 23v-9" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/></svg>
       </div>
-      <button type="button" class="rail-btn rail-add" id="add-graph" title="Add a graph from a table (G)" aria-label="Add a graph from a table">
+      <button type="button" class="rail-btn rail-add" id="add-graph" data-i18n-title="addGraph" data-i18n-aria="addGraph" data-kbd="G" title="Add a graph from a table (G)" aria-label="Add a graph from a table">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
       </button>
       <span class="rail-sep"></span>
@@ -34,116 +34,141 @@
       <button type="button" class="rail-btn" data-tool="text" title="Text (T)" aria-label="Text" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6V4.5h14V6M12 4.5v15M9 19.5h6"/></svg><kbd class="rail-key">T</kbd></button>
       <button type="button" class="rail-btn" data-tool="eraser" title="Eraser (E)" aria-label="Eraser" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 20H20M4.6 15.4l9.9-9.9a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L11 19H8.2z"/><path d="M9 11l5.5 5.5"/></svg><kbd class="rail-key">E</kbd></button>
       <span class="rail-sep"></span>
-      <button type="button" class="rail-btn" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
-      <button type="button" class="rail-btn" id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+      <button type="button" class="rail-btn" id="undo" data-i18n-title="undo" data-i18n-aria="undo" data-kbd="Ctrl+Z" title="Undo (Ctrl+Z)" aria-label="Undo" disabled><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+      <button type="button" class="rail-btn" id="redo" data-i18n-title="redo" data-i18n-aria="redo" data-kbd="Ctrl+Shift+Z" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+      <span class="rail-sep"></span>
+      <button type="button" class="rail-btn" id="settings-btn" data-i18n-title="settings" data-i18n-aria="settings" title="Language &amp; theme" aria-label="Language &amp; theme" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></button>
     </nav>
+
+    <!-- language & theme -->
+    <div class="popover" id="settings" role="dialog" aria-labelledby="settings-title" hidden>
+      <strong id="settings-title" data-i18n="settings">Language &amp; theme</strong>
+      <label class="field"><span data-i18n="language">Language</span><select id="lang-select"></select></label>
+      <div class="field"><span data-i18n="theme">Theme</span>
+        <div class="seg3" id="theme-seg" role="radiogroup">
+          <button type="button" data-v="system" data-i18n="system">System</button>
+          <button type="button" data-v="light" data-i18n="light">Light</button>
+          <button type="button" data-v="dark" data-i18n="dark">Dark</button>
+        </div>
+      </div>
+    </div>
 
     <!-- drawing properties (shown for drawing tools and selected drawings) -->
     <div class="props" id="props" hidden>
-      <div class="prop-row" data-prop="stroke"><span>Color</span><div class="swatches" id="prop-stroke"></div></div>
-      <div class="prop-row" data-prop="sw"><span>Stroke</span><div class="seg3" id="prop-sw">
-        <button type="button" data-v="1.5" title="Thin"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 12h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
-        <button type="button" data-v="3" title="Medium"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 12h16" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></button>
-        <button type="button" data-v="6" title="Bold"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 12h16" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/></svg></button>
+      <div class="prop-row" data-prop="stroke"><span data-i18n="color">Color</span><div class="swatches" id="prop-stroke"></div></div>
+      <div class="prop-row" data-prop="sw"><span data-i18n="strokeWidth">Stroke</span><div class="seg3" id="prop-sw">
+        <button type="button" data-v="1.5" data-i18n-title="thin" title="Thin"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 12h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+        <button type="button" data-v="3" data-i18n-title="medium" title="Medium"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 12h16" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></button>
+        <button type="button" data-v="6" data-i18n-title="bold" title="Bold"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 12h16" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/></svg></button>
       </div></div>
-      <div class="prop-row" data-prop="fill"><span>Fill</span><div class="seg3" id="prop-fill">
-        <button type="button" data-v="none" title="No fill"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="5" y="5" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
-        <button type="button" data-v="soft" title="Light fill"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor" fill-opacity=".25" stroke="currentColor" stroke-width="1.8"/></svg></button>
-        <button type="button" data-v="solid" title="Solid fill"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor" stroke="currentColor" stroke-width="1.8"/></svg></button>
+      <div class="prop-row" data-prop="fill"><span data-i18n="fill">Fill</span><div class="seg3" id="prop-fill">
+        <button type="button" data-v="none" data-i18n-title="noFill" title="No fill"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="5" y="5" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+        <button type="button" data-v="soft" data-i18n-title="lightFill" title="Light fill"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor" fill-opacity=".25" stroke="currentColor" stroke-width="1.8"/></svg></button>
+        <button type="button" data-v="solid" data-i18n-title="solidFill" title="Solid fill"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor" stroke="currentColor" stroke-width="1.8"/></svg></button>
       </div></div>
-      <div class="prop-row" data-prop="fs"><span>Size</span><div class="seg3" id="prop-fs">
+      <div class="prop-row" data-prop="fs"><span data-i18n="size">Size</span><div class="seg3" id="prop-fs">
         <button type="button" data-v="16">S</button><button type="button" data-v="24">M</button><button type="button" data-v="36">L</button><button type="button" data-v="56">XL</button>
       </div></div>
-      <div class="prop-row" data-prop="actions"><span>Layer</span><div class="seg3">
-        <button type="button" id="prop-front" title="Bring to front">Front</button>
-        <button type="button" id="prop-back" title="Send to back">Back</button>
-        <button type="button" id="prop-del" title="Delete (Del)" class="danger">Delete</button>
+      <div class="prop-row" data-prop="actions"><span data-i18n="layer">Layer</span><div class="seg3">
+        <button type="button" id="prop-front" data-i18n="frontShort" data-i18n-title="bringFront" title="Bring to front">Front</button>
+        <button type="button" id="prop-back" data-i18n="backShort" data-i18n-title="sendBack" title="Send to back">Back</button>
+        <button type="button" id="prop-del" data-i18n="delete" data-i18n-title="delete" data-kbd="Del" title="Delete (Del)" class="danger">Delete</button>
       </div></div>
     </div>
 
     <!-- landing message on an empty board -->
     <div class="welcome" id="welcome" hidden>
-      <h1>Turn any table into a graph</h1>
-      <p>Copy cells from Excel, Google Sheets or Numbers and press <kbd>Ctrl</kbd>+<kbd>V</kbd> anywhere, or use the <strong>+</strong> button on the left.</p>
+      <h1 data-i18n="welcomeTitle">Turn any table into a graph</h1>
+      <p id="welcome-text">Copy cells from Excel, Google Sheets or Numbers and press <kbd>Ctrl</kbd>+<kbd>V</kbd> anywhere, or use the <strong>+</strong> button on the left.</p>
       <div class="welcome-actions">
-        <button type="button" class="btn primary" id="welcome-add">+ Add a graph</button>
-        <button type="button" class="btn" id="welcome-sample">Try sample data</button>
+        <button type="button" class="btn primary" id="welcome-add" data-i18n="welcomeAdd">+ Add a graph</button>
+        <button type="button" class="btn" id="welcome-sample" data-i18n="trySample">Try sample data</button>
       </div>
     </div>
 
     <!-- zoom -->
     <div class="zoombar" role="group" aria-label="Zoom">
-      <button id="zoom-out" type="button" title="Zoom out (Ctrl −)" aria-label="Zoom out">−</button>
-      <button id="zoom-pct" type="button" title="Reset to 100% (Ctrl 0)">100%</button>
-      <button id="zoom-in" type="button" title="Zoom in (Ctrl +)" aria-label="Zoom in">+</button>
+      <button id="zoom-out" type="button" data-i18n-title="zoomOut" data-i18n-aria="zoomOut" data-kbd="Ctrl −" title="Zoom out (Ctrl −)" aria-label="Zoom out">−</button>
+      <button id="zoom-pct" type="button" data-i18n-title="resetZoom" data-kbd="Ctrl 0" title="Reset to 100% (Ctrl 0)">100%</button>
+      <button id="zoom-in" type="button" data-i18n-title="zoomIn" data-i18n-aria="zoomIn" data-kbd="Ctrl +" title="Zoom in (Ctrl +)" aria-label="Zoom in">+</button>
       <span class="sep"></span>
-      <button id="zoom-fit" type="button" title="Show everything (Shift 1)">Fit</button>
+      <button id="zoom-fit" type="button" data-i18n="fit" data-i18n-title="showAll" data-kbd="Shift 1" title="Show everything (Shift 1)">Fit</button>
     </div>
 
     <!-- graph style drawer -->
-    <aside class="drawer" id="style-panel" hidden aria-label="Graph style">
+    <aside class="drawer" id="style-panel" hidden aria-label="Graph style" data-i18n-aria="graphStyle">
       <div class="drawer-head">
         <strong id="style-title">Graph style</strong>
-        <button type="button" class="icon-btn" id="style-close" title="Close (Esc)" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        <button type="button" class="icon-btn" id="style-close" data-i18n-title="close" data-i18n-aria="close" data-kbd="Esc" title="Close (Esc)" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
       </div>
       <div class="drawer-body">
       <section class="sec">
-        <h2>Chart type</h2>
+        <h2 data-i18n="chartType">Chart type</h2>
         <div id="types" class="types" role="radiogroup" aria-label="Chart type"></div>
       </section>
 
       <section class="sec">
-        <h2>Columns</h2>
+        <h2 data-i18n="colors">Colors</h2>
+        <div class="field"><span data-i18n="colorScheme">Color scheme</span>
+          <div class="schemes" id="schemes" role="radiogroup"></div>
+        </div>
+        <label class="switch minimal-switch"><input type="checkbox" data-key="minimal"><span></span><i data-i18n="minimalist">Minimalist (two-tone)</i></label>
+        <p class="hint minimal-hint" data-i18n="minimalistHint">One highlight color; everything else in gray.</p>
+        <label class="field" id="highlight-field" hidden><span data-i18n="highlight">Highlight</span><select id="highlight"></select></label>
+      </section>
+
+      <section class="sec">
+        <h2 data-i18n="columns">Columns</h2>
         <label class="field" id="x-field">
           <span id="x-label-text">Labels (X axis)</span>
           <select id="x-col"></select>
         </label>
         <div class="field">
-          <span>Series</span>
+          <span data-i18n="series">Series</span>
           <div id="series" class="chips"></div>
         </div>
         <p id="series-note" class="hint"></p>
         <label class="field" id="bins-field" hidden>
-          <span>Number of bins</span>
+          <span data-i18n="bins">Number of bins</span>
           <input type="number" data-key="bins" min="2" max="100" step="1">
         </label>
       </section>
 
       <section class="sec">
-        <h2>Text</h2>
-        <label class="field"><span>Title</span><input type="text" data-key="title" placeholder="Chart title"></label>
-        <label class="field"><span>Subtitle</span><input type="text" data-key="subtitle" placeholder="Optional"></label>
+        <h2 data-i18n="text">Text</h2>
+        <label class="field"><span data-i18n="title">Title</span><input type="text" data-key="title" data-i18n-ph="chartTitlePh" placeholder="Chart title"></label>
+        <label class="field"><span data-i18n="subtitle">Subtitle</span><input type="text" data-key="subtitle" data-i18n-ph="optional" placeholder="Optional"></label>
         <div class="grid2">
-          <label class="field"><span>X axis title</span><input type="text" data-key="xTitle" placeholder="Optional"></label>
-          <label class="field"><span>Y axis title</span><input type="text" data-key="yTitle" placeholder="Optional"></label>
+          <label class="field"><span data-i18n="xTitle">X axis title</span><input type="text" data-key="xTitle" data-i18n-ph="optional" placeholder="Optional"></label>
+          <label class="field"><span data-i18n="yTitle">Y axis title</span><input type="text" data-key="yTitle" data-i18n-ph="optional" placeholder="Optional"></label>
         </div>
       </section>
 
       <section class="sec">
-        <h2>Style</h2>
+        <h2 data-i18n="styleSec">Style</h2>
         <label class="field">
-          <span>Legend</span>
+          <span data-i18n="legend">Legend</span>
           <select data-key="legend">
-            <option value="auto">Automatic</option>
-            <option value="top">Top</option>
-            <option value="bottom">Bottom</option>
-            <option value="right">Right</option>
-            <option value="left">Left</option>
-            <option value="none">Hidden</option>
+            <option value="auto" data-i18n="auto">Automatic</option>
+            <option value="top" data-i18n="top">Top</option>
+            <option value="bottom" data-i18n="bottom">Bottom</option>
+            <option value="right" data-i18n="right">Right</option>
+            <option value="left" data-i18n="left">Left</option>
+            <option value="none" data-i18n="hidden">Hidden</option>
           </select>
         </label>
         <div class="toggles">
-          <label class="switch"><input type="checkbox" data-key="showValues"><span></span>Show values</label>
-          <label class="switch"><input type="checkbox" data-key="smooth"><span></span>Smooth lines</label>
-          <label class="switch"><input type="checkbox" data-key="beginZero"><span></span>Start axis at zero</label>
-          <label class="switch"><input type="checkbox" data-key="grid"><span></span>Gridlines</label>
+          <label class="switch"><input type="checkbox" data-key="showValues"><span></span><i data-i18n="showValues">Show values</i></label>
+          <label class="switch"><input type="checkbox" data-key="smooth"><span></span><i data-i18n="smooth">Smooth lines</i></label>
+          <label class="switch"><input type="checkbox" data-key="beginZero"><span></span><i data-i18n="beginZero">Start axis at zero</i></label>
+          <label class="switch"><input type="checkbox" data-key="grid"><span></span><i data-i18n="grid">Gridlines</i></label>
         </div>
       </section>
 
       <section class="sec">
-        <h2>Size &amp; export</h2>
+        <h2 data-i18n="sizeExport">Size &amp; export</h2>
         <label class="field">
-          <span>Preset</span>
+          <span data-i18n="preset">Preset</span>
           <select id="preset">
             <option value="">Custom</option>
             <option value="960x540">Slide 16:9 — 960 × 540</option>
@@ -157,13 +182,13 @@
           </select>
         </label>
         <div class="grid2">
-          <label class="field"><span>Width (px)</span><input type="number" id="w" min="200" max="4000" step="10"></label>
-          <label class="field"><span>Height (px)</span><input type="number" id="h" min="200" max="4000" step="10"></label>
+          <label class="field"><span data-i18n="width">Width (px)</span><input type="number" id="w" min="200" max="4000" step="10"></label>
+          <label class="field"><span data-i18n="height">Height (px)</span><input type="number" id="h" min="200" max="4000" step="10"></label>
         </div>
-        <p class="hint">Or drag the edges and corners of the graph on the board. Hold Shift on a corner to keep the shape.</p>
+        <p class="hint" data-i18n="resizeHint">Or drag the edges and corners of the graph on the board. Hold Shift on a corner to keep the shape.</p>
         <div class="grid2">
           <label class="field">
-            <span>PNG quality</span>
+            <span data-i18n="pngQuality">PNG quality</span>
             <select data-key="scale">
               <option value="1">1× (screen)</option>
               <option value="2">2× (sharp)</option>
@@ -172,53 +197,53 @@
             </select>
           </label>
           <label class="field">
-            <span>PNG background</span>
+            <span data-i18n="pngBg">PNG background</span>
             <select data-key="bg">
-              <option value="white">White</option>
-              <option value="transparent">Transparent</option>
+              <option value="white" data-i18n="solid">Solid</option>
+              <option value="transparent" data-i18n="transparent">Transparent</option>
             </select>
           </label>
         </div>
       </section>
         <div class="sec export-row">
-          <button id="dl-png" class="btn primary" type="button">Download PNG</button>
-          <button id="dl-pdf" class="btn" type="button">Download PDF</button>
+          <button id="dl-png" class="btn primary" type="button" data-i18n="downloadPng">Download PNG</button>
+          <button id="dl-pdf" class="btn" type="button" data-i18n="downloadPdf">Download PDF</button>
         </div>
       </div>
     </aside>
 
     <!-- the ⋯ menu on a graph -->
     <div class="menu" id="card-menu" role="menu" hidden>
-      <button type="button" role="menuitem" data-cmd="style"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r="1.2"/><circle cx="17.5" cy="10.5" r="1.2"/><circle cx="8.5" cy="7.5" r="1.2"/><circle cx="6.5" cy="12.5" r="1.2"/><path d="M12 2a10 10 0 0 0 0 20c1 0 1.6-.8 1.6-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7h2A5.5 5.5 0 0 0 22 11 9.6 9.6 0 0 0 12 2z"/></svg>Edit graph style</button>
-      <button type="button" role="menuitem" data-cmd="table"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>Edit table</button>
+      <button type="button" role="menuitem" data-cmd="style"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r="1.2"/><circle cx="17.5" cy="10.5" r="1.2"/><circle cx="8.5" cy="7.5" r="1.2"/><circle cx="6.5" cy="12.5" r="1.2"/><path d="M12 2a10 10 0 0 0 0 20c1 0 1.6-.8 1.6-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7h2A5.5 5.5 0 0 0 22 11 9.6 9.6 0 0 0 12 2z"/></svg><span data-i18n="editStyle">Edit graph style</span></button>
+      <button type="button" role="menuitem" data-cmd="table"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg><span data-i18n="editTable">Edit table</span></button>
       <span class="menu-sep"></span>
-      <button type="button" role="menuitem" data-cmd="dup"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>Duplicate<kbd>Ctrl D</kbd></button>
-      <button type="button" role="menuitem" data-cmd="front"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg>Bring to front</button>
-      <button type="button" role="menuitem" data-cmd="png"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>Download PNG</button>
-      <button type="button" role="menuitem" data-cmd="pdf"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>Download PDF</button>
+      <button type="button" role="menuitem" data-cmd="dup"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span data-i18n="duplicate">Duplicate</span><kbd>Ctrl D</kbd></button>
+      <button type="button" role="menuitem" data-cmd="front"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg><span data-i18n="bringFront">Bring to front</span></button>
+      <button type="button" role="menuitem" data-cmd="png"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg><span data-i18n="downloadPng">Download PNG</span></button>
+      <button type="button" role="menuitem" data-cmd="pdf"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg><span data-i18n="downloadPdf">Download PDF</span></button>
       <span class="menu-sep"></span>
-      <button type="button" role="menuitem" data-cmd="del" class="danger"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>Delete<kbd>Del</kbd></button>
+      <button type="button" role="menuitem" data-cmd="del" class="danger"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg><span data-i18n="delete">Delete</span><kbd>Del</kbd></button>
     </div>
 
     <!-- + dialog -->
     <div class="modal" id="add-modal" hidden>
       <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="add-title">
         <div class="dialog-head">
-          <h2 id="add-title">Add a graph</h2>
-          <button type="button" class="icon-btn" id="add-cancel-x" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+          <h2 id="add-title" data-i18n="addTitle">Add a graph</h2>
+          <button type="button" class="icon-btn" id="add-cancel-x" data-i18n-aria="close" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
         </div>
-        <p class="dialog-sub">Copy cells from Excel, Google Sheets or Numbers and paste them below. CSV and Markdown tables work too.</p>
-        <textarea id="add-text" spellcheck="false" placeholder="Paste your table here (Ctrl+V / ⌘V)"></textarea>
+        <p class="dialog-sub" data-i18n="addSub">Copy cells from Excel, Google Sheets or Numbers and paste them below. CSV and Markdown tables work too.</p>
+        <textarea id="add-text" spellcheck="false" dir="auto" data-i18n-ph="addPh" placeholder="Paste your table here (Ctrl+V / ⌘V)"></textarea>
         <p class="status" id="add-status"></p>
         <div class="dialog-foot">
           <div class="dialog-links">
-            <button type="button" class="link" id="add-upload">Upload CSV</button>
-            <button type="button" class="link" id="add-sample">Use sample data</button>
-            <button type="button" class="link" id="add-empty">Start with an empty table</button>
+            <button type="button" class="link" id="add-upload" data-i18n="uploadCsv">Upload CSV</button>
+            <button type="button" class="link" id="add-sample" data-i18n="useSample">Use sample data</button>
+            <button type="button" class="link" id="add-empty" data-i18n="emptyTable">Start with an empty table</button>
           </div>
           <div class="dialog-btns">
-            <button type="button" class="btn" id="add-cancel">Cancel</button>
-            <button type="button" class="btn primary" id="add-create" disabled>Create graph</button>
+            <button type="button" class="btn" id="add-cancel" data-i18n="cancel">Cancel</button>
+            <button type="button" class="btn primary" id="add-create" data-i18n="create" disabled>Create graph</button>
           </div>
         </div>
         <input type="file" id="file" accept=".csv,.tsv,.txt,text/csv,text/plain" multiple hidden>
@@ -229,29 +254,29 @@
   <template id="table-panel-tpl">
     <div class="table-panel" id="table-panel">
       <div class="tp-head">
-        <strong>Table</strong>
+        <strong data-i18n="table">Table</strong>
         <div class="tp-tools">
-          <button id="sample" class="link" type="button">Sample</button>
-          <button id="clear" class="link" type="button">Clear</button>
-          <button id="tp-close" class="tp-x" type="button" title="Hide table" aria-label="Hide table">
+          <button id="sample" class="link" type="button" data-i18n="sample">Sample</button>
+          <button id="clear" class="link" type="button" data-i18n="clear">Clear</button>
+          <button id="tp-close" class="tp-x" type="button" data-i18n-title="hideTable" data-i18n-aria="hideTable" title="Hide table" aria-label="Hide table">
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
       </div>
       <div id="paste-zone">
-        <textarea id="data" spellcheck="false" placeholder="Copy cells from Excel, Google Sheets or Numbers, then paste here (Ctrl+V / ⌘V).&#10;&#10;CSV, tab-separated and Markdown tables work too."></textarea>
+        <textarea id="data" spellcheck="false" data-i18n-ph="addPh" placeholder="Paste your table here (Ctrl+V / ⌘V)"></textarea>
       </div>
       <div id="grid-zone">
         <div class="preview"><table id="preview"></table></div>
         <div class="table-tools">
-          <button id="add-row" class="link" type="button">+ Row</button>
-          <button id="add-col" class="link" type="button">+ Column</button>
-          <span class="hint">Click a cell to edit · clear a whole row to remove it</span>
+          <button id="add-row" class="link" type="button" data-i18n="addRow">+ Row</button>
+          <button id="add-col" class="link" type="button" data-i18n="addCol">+ Column</button>
+          <span class="hint" data-i18n="cellHint">Click a cell to edit · clear a whole row to remove it</span>
         </div>
       </div>
       <div class="tp-foot">
-        <label class="check"><input type="checkbox" id="opt-header"> First row is headers</label>
-        <label class="check"><input type="checkbox" id="opt-transpose"> Series in rows</label>
+        <label class="check"><input type="checkbox" id="opt-header"> <span data-i18n="headerRow">First row is headers</span></label>
+        <label class="check"><input type="checkbox" id="opt-transpose"> <span data-i18n="seriesRows">Series in rows</span></label>
         <span id="data-status" class="status"></span>
         <button id="raw-toggle" class="link" type="button">Edit as text</button>
       </div>
@@ -262,6 +287,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="app.js?v=6"></script>
+  <script src="i18n.js?v=7"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
