@@ -191,3 +191,7 @@ Open **http://localhost:5190**. Any static file server works (`npx serve`, VS Co
 - [jsPDF](https://github.com/parallax/jsPDF) for PDF export
 - [Noto](https://fonts.google.com/noto) fonts by Google, for the Indian scripts
 - Okabe & Ito's colorblind-safe palette, for the Colorblind-safe scheme
+
+## License
+
+Released under the [MIT License](LICENSE). You can use, copy, change and share it freely, including in commercial projects, as long as you keep the copyright and license notice.
